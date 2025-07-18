@@ -3,6 +3,10 @@ from telegram_bot import process_telegram_update
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"status": "alive"}
+
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
