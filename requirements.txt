@@ -3,5 +3,3 @@ uvicorn==0.27.0
 requests==2.31.0
 python-multipart==0.0.6
 aiohttp==3.9.3
-openai>=1.0.0  # New version
-
