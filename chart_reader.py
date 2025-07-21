@@ -1,42 +1,52 @@
 import requests
 import os
-import time
 import logging
+import base64
 
 logger = logging.getLogger(__name__)
 
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-
-# List of potential vision models to try (in order)
-VISION_MODELS = [
-    "vikhyatk/moondream2",
-    "Salesforce/blip2-opt-2.7b",
-    "nlpconnect/vit-gpt2-image-captioning"
-]
-
 def read_chart_image(image_bytes):
-    """Analyze chart image with multiple fallback options"""
-    for model in VISION_MODELS:
-        try:
-            url = f"https://api-inference.huggingface.co/models/{model}"
-            headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
-            
-            response = requests.post(url, headers=headers, data=image_bytes, timeout=30)
-            
-            # Handle model loading
-            if response.status_code == 503:
-                wait_time = response.json().get("estimated_time", 30)
-                logger.info(f"Model {model} loading, waiting {wait_time}s...")
-                time.sleep(wait_time)
-                return read_chart_image(image_bytes)
-                
-            response.raise_for_status()
-            result = response.json()
-            return result[0].get("generated_text", str(result))
-            
-        except Exception as e:
-            logger.warning(f"Model {model} failed: {str(e)}")
-            continue
+    """Analyze chart image using a reliable API"""
+    try:
+        # Option 1: Use OpenAI's GPT-4 Vision (if you have access)
+        if os.getenv("OPENAI_API_KEY"):
+            return analyze_with_openai(image_bytes)
+        
+        # Option 2: Use a free API (example with Imagga)
+        return analyze_with_imagga(image_bytes)
+        
+    except Exception as e:
+        logger.error(f"Chart analysis failed: {str(e)}")
+        return "⚠️ Could not analyze chart (service unavailable)"
+
+def analyze_with_openai(image_bytes):
+    """Use OpenAI's vision capabilities"""
+    import openai
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     
-    logger.error("All vision models failed")
-    return "⚠️ Could not analyze chart (try a clearer image or different model)"
+    response = openai.ChatCompletion.create(
+        model="gpt-4-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analyze this trading chart. Describe key patterns, support/resistance levels, and trends."},
+                    {"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"}
+                ]
+            }
+        ],
+        max_tokens=300
+    )
+    return response.choices[0].message.content
+
+def analyze_with_imagga(image_bytes):
+    """Fallback to Imagga's tagging API (free tier available)"""
+    api_key = os.getenv("IMAGGA_API_KEY") or "YOUR_FREE_KEY"
+    response = requests.post(
+        "https://api.imagga.com/v2/tags",
+        auth=(api_key, ""),
+        files={"image": image_bytes},
+        data={"image_content": "trading chart"}
+    )
+    tags = [tag["tag"]["en"] for tag in response.json()["result"]["tags"][:5]]
+    return "Chart features: " + ", ".join(tags)
