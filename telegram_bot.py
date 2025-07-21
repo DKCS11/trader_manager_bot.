@@ -3,7 +3,7 @@ import os
 import json
 import logging
 from chart_reader import read_chart_image
-from chat_engine import ask_chat_engine
+from chat_engine import ask_chat_engine  # This now matches the function name
 from trade_logic import suggest_trade
 
 logger = logging.getLogger(__name__)
@@ -31,34 +31,22 @@ async def process_telegram_update(update):
             return
 
         if "photo" in message:
-            # Get highest resolution photo
             file_id = message["photo"][-1]["file_id"]
-            file_info = requests.get(
-                f"{TELEGRAM_API_URL}/getFile?file_id={file_id}"
-            ).json()
-            
+            file_info = requests.get(f"{TELEGRAM_API_URL}/getFile?file_id={file_id}").json()
             file_path = file_info["result"]["file_path"]
             image_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
-            
-            # Download image
-            image_response = requests.get(image_url)
-            image_response.raise_for_status()
-            
-            # Analyze image
-            caption = read_chart_image(image_response.content)
+            image_bytes = requests.get(image_url).content
+
+            caption = read_chart_image(image_bytes)
             strategy = suggest_trade(str(caption))
-            ai_response = ask_chat_engine(
-                f"Analyze this trading chart:\n{caption}\n\nSuggested strategy: {strategy}\n"
-                "Provide concise trading advice in 2-3 sentences."
-            )
-            
-            # Save and respond
+            ai_response = ask_chat_engine(f"Chart analysis: {caption}\nSuggestion: {strategy}")
+
             save_trade_log({
                 "caption": caption,
                 "strategy": strategy,
                 "ai_response": ai_response
             })
-            
+
             response_text = (
                 "📈 Chart Analysis:\n"
                 f"{caption}\n\n"
@@ -67,7 +55,6 @@ async def process_telegram_update(update):
                 "🤖 AI Insights:\n"
                 f"{ai_response}"
             )
-            
         else:
             response_text = "Please send a chart image for analysis."
 
