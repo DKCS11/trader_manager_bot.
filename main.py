@@ -1,5 +1,10 @@
-import os
+from fastapi import FastAPI, Request
+import os  # Add this import
+from telegram_bot import process_telegram_update
 
+app = FastAPI()  # <-- This must come FIRST
+
+# Add the debug endpoint AFTER defining 'app'
 @app.get("/debug")
 async def debug():
     return {
@@ -7,10 +12,6 @@ async def debug():
         "HUGGINGFACE_API_KEY": bool(os.getenv("HUGGINGFACE_API_KEY")),
         "OPENROUTER_API_KEY": bool(os.getenv("OPENROUTER_API_KEY")),
     }
-from fastapi import FastAPI, Request
-from telegram_bot import process_telegram_update
-
-app = FastAPI()
 
 @app.get("/")
 async def root():
