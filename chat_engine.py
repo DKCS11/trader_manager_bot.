@@ -5,36 +5,48 @@ import logging
 logger = logging.getLogger(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Ordered list of models to try
+MODELS = [
+    {"name": "gpt-3.5-turbo", "free": False},
+    {"name": "google/gemma-7b-it:free", "free": True},
+    {"name": "anthropic/claude-instant-v1", "free": False}
+]
 
 headers = {
     "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-    "HTTP-Referer": "https://your-render-url.onrender.com",  # Replace with your URL
+    "HTTP-Referer": "https://your-render-url.onrender.com",
     "X-Title": "Trader Manager Bot"
 }
 
-FREE_MODEL = "google/gemma-7b-it:free"
-PAID_MODEL = "gpt-4"
-
 def ask_chat_engine(prompt):
-    """Query OpenRouter AI with fallback to free model"""
-    try:
-        payload = {
-            "model": PAID_MODEL,
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        
-        response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
-        
-        # If payment required, try free model
-        if response.status_code == 402:
-            logger.info("Falling back to free model")
-            payload["model"] = FREE_MODEL
-            response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
+    """Query AI with multiple fallback options"""
+    for model in MODELS:
+        try:
+            if model["free"] and not OPENROUTER_API_KEY:
+                continue
+                
+            payload = {
+                "model": model["name"],
+                "messages": [{"role": "user", "content": prompt}]
+            }
             
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
-        
-    except Exception as e:
-        logger.error(f"OpenRouter API error: {str(e)}")
-        return "⚠️ AI analysis is currently unavailable"
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 402 and model["free"]:
+                continue  # Skip if free model requires payment
+                
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
+            
+        except Exception as e:
+            logger.warning(f"Model {model['name']} failed: {str(e)}")
+            continue
+    
+    logger.error("All AI models failed")
+    return "⚠️ AI analysis is currently unavailable"
