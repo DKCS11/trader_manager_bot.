@@ -2,13 +2,11 @@ services:
   - type: web
     name: trader-manager-bot
     env: python
-    pythonVersion: "3.10"  # Explicit version
+    pythonVersion: "3.10"
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: HUGGINGFACE_API_KEY
-        sync: false
+      - key: OPENAI_API_KEY  # Optional
+      - key: IMAGGA_API_KEY  # Get from imagga.com
       - key: OPENROUTER_API_KEY
-        sync: false
