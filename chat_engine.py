@@ -1,21 +1,28 @@
 import requests
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    raise Exception("OPENROUTER_API_KEY environment variable is missing!")
-
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}"}
+
+headers = {
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "HTTP-Referer": "https://your-render-url.onrender.com",  # Replace with your URL
+    "X-Title": "Trader Manager Bot"
+}
 
 def ask_chat_engine(prompt):
-    payload = {
-        "model": "gpt-4o",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
-    
-    if response.status_code != 200:
-        raise Exception(f"OpenRouter API Error: {response.status_code} {response.text}")
-    
-    return response.json()["choices"][0]["message"]["content"]
+    """Query OpenRouter AI."""
+    try:
+        payload = {
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        logger.error(f"OpenRouter API error: {str(e)}")
+        return f"⚠️ AI service error: {str(e)}"
