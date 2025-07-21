@@ -1,35 +1,24 @@
 import requests
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-headers = {
-    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-    "HTTP-Referer": "https://your-render-url.onrender.com",
-    "X-Title": "Trader Manager Bot"
-}
-
-def ask_chat_engine(prompt):  # Make sure this matches your import
-    """Query OpenRouter AI with error handling"""
+def ask_chat_engine(prompt):
+    """Free AI analysis using Hugging Face endpoints"""
     try:
-        payload = {
-            "model": "google/gemma-7b-it:free",
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        
+        # Try the free Mistral API
         response = requests.post(
-            OPENROUTER_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=30
+            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+            headers={"Authorization": "Bearer hf_xxxxxxxx"},  # Optional public token
+            json={"inputs": prompt},
+            timeout=20
         )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+        
+        if response.status_code == 200:
+            return response.json()[0]["generated_text"]
+            
+        return "⚠️ Free AI service is currently overloaded"
         
     except Exception as e:
         logger.error(f"AI service error: {str(e)}")
-        return "⚠️ AI analysis is currently unavailable"
+        return "⚠️ AI analysis is temporarily unavailable"
