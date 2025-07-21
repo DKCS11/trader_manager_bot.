@@ -1,58 +1,35 @@
 import requests
 import os
 import logging
-import base64
 
 logger = logging.getLogger(__name__)
 
-def read_chart_image(image_bytes):
-    """Analyze trading chart with multiple fallback options"""
-    try:
-        # 1. First try free API (Imagga)
-        if os.getenv("IMAGGA_API_KEY"):
-            return analyze_with_imagga(image_bytes)
-            
-        # 2. Try local analysis if no APIs available
-        return analyze_locally(image_bytes)
-        
-    except Exception as e:
-        logger.error(f"Chart analysis failed: {str(e)}")
-        return "⚠️ Could not analyze chart (try a clearer image)"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-def analyze_with_imagga(image_bytes):
-    """Free tier API (500 calls/month)"""
-    api_key = os.getenv("IMAGGA_API_KEY")
-    response = requests.post(
-        "https://api.imagga.com/v2/tags",
-        auth=(api_key, ""),
-        files={"image": image_bytes},
-        params={"image_content": "trading chart"},
-        timeout=10
-    )
-    response.raise_for_status()
-    tags = [tag["tag"]["en"] for tag in response.json()["result"]["tags"][:5]]
-    return "Chart features: " + ", ".join(tags)
+headers = {
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "HTTP-Referer": "https://your-render-url.onrender.com",
+    "X-Title": "Trader Manager Bot"
+}
 
-def analyze_locally(image_bytes):
-    """Basic analysis without external APIs or Pillow"""
+def ask_chat_engine(prompt):  # Make sure this matches your import
+    """Query OpenRouter AI with error handling"""
     try:
-        # Extremely lightweight analysis (no Pillow required)
-        file_size = len(image_bytes)
-        header = image_bytes[:24]
+        payload = {
+            "model": "google/gemma-7b-it:free",
+            "messages": [{"role": "user", "content": prompt}]
+        }
         
-        # Detect basic image type from magic numbers
-        if header.startswith(b'\xff\xd8'):
-            img_type = "JPEG"
-        elif header.startswith(b'\x89PNG'):
-            img_type = "PNG"
-        else:
-            img_type = "Unknown"
-            
-        return (
-            f"Basic Analysis:\n"
-            f"• File Size: {file_size:,} bytes\n"
-            f"• Image Type: {img_type}\n"
-            f"• Enable APIs for detailed analysis"
+        response = requests.post(
+            OPENROUTER_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
         )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+        
     except Exception as e:
-        return f"⚠️ Basic analysis failed: {str(e)}"
+        logger.error(f"AI service error: {str(e)}")
+        return "⚠️ AI analysis is currently unavailable"
